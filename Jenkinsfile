@@ -1,52 +1,35 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = 'react-app'
-        IMAGE_TAG  = "${BUILD_NUMBER}"
-        CONTAINER_NAME = 'react-app-verify'
-        HOST_PORT = '8090'
-    }
-
     stages {
-
         stage('Install & Test') {
             steps {
                 dir('simple-node-js-react-npm-app') {
-                    sh 'npm ci'
-                    sh 'npx vitest run'
+                    sh 'docker run --rm -v $(pwd):/app -w /app node:20-alpine sh -c "npm ci && npx vitest run"'
                 }
             }
         }
-
         stage('Build Image') {
             steps {
                 dir('simple-node-js-react-npm-app') {
-                    sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
+                    sh 'docker build -t react-app:${BUILD_NUMBER} .'
                 }
             }
         }
-
         stage('Run Container') {
             steps {
-                sh '''
-                    docker rm -f ${CONTAINER_NAME} || true
-                    docker run -d \
-                        --name ${CONTAINER_NAME} \
-                        -p ${HOST_PORT}:80 \
-                        ${IMAGE_NAME}:${IMAGE_TAG}
-                '''
+                sh 'docker rm -f react-app-verify || true'
+                sh 'docker run -d --name react-app-verify -p 8090:80 react-app:${BUILD_NUMBER}'
             }
         }
-
         stage('Verify') {
             steps {
+                sh 'sleep 3'
                 sh '''
-                    sleep 3
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${HOST_PORT})
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8090)
                     echo "HTTP Status: $STATUS"
                     if [ "$STATUS" != "200" ]; then
-                        echo "Verification FAILED - got HTTP $STATUS"
+                        echo "Verification FAILED"
                         exit 1
                     fi
                     echo "Verification PASSED"
@@ -54,13 +37,12 @@ pipeline {
             }
         }
     }
-
     post {
         always {
-            sh 'docker rm -f ${CONTAINER_NAME} || true'
+            sh 'docker rm -f react-app-verify || true'
         }
         success {
-            echo "Pipeline succeeded - Image: ${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "Pipeline succeeded - Image: react-app:${BUILD_NUMBER}"
         }
         failure {
             echo "Pipeline failed - check logs above"
