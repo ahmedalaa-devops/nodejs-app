@@ -1,0 +1,90 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'my-react-app'
+        IMAGE_TAG  = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                dir('simple-node-js-react-npm-app') {
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                dir('simple-node-js-react-npm-app') {
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('simple-node-js-react-npm-app') {
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Push to Registry') {
+            // فعّل الـ stage ده لو عندك Docker registry
+            when {
+                branch 'main'
+            }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-hub-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh """
+                    docker stop ${IMAGE_NAME} || true
+                    docker rm   ${IMAGE_NAME} || true
+                    docker run -d \
+                        --name ${IMAGE_NAME} \
+                        -p 80:80 \
+                        --restart unless-stopped \
+                        ${IMAGE_NAME}:${IMAGE_TAG}
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline succeeded — Build #${env.BUILD_NUMBER}"
+        }
+        failure {
+            echo "❌ Pipeline failed — Check the logs above"
+        }
+        always {
+            // تنظيف الـ images القديمة
+            sh "docker image prune -f || true"
+        }
+    }
+}
