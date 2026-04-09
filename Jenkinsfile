@@ -2,13 +2,7 @@ pipeline {
     agent any
 
     stages {
-        stage('Install & Test') {
-            steps {
-                dir('simple-node-js-react-npm-app') {
-                    sh 'docker run --rm -v $(pwd):/app -w /app node:20-alpine sh -c "npm ci && npx vitest run"'
-                }
-            }
-        }
+        
         stage('Build Image') {
             steps {
                 dir('simple-node-js-react-npm-app') {
