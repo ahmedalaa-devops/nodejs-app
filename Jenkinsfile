@@ -1,5 +1,9 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:20-alpine'
+        }
+    }
 
     environment {
         NEXUS_HOSTED = "localhost:30082"
@@ -12,23 +16,17 @@ pipeline {
 
         stage('Install & Test') {
             steps {
-                dir('simple-node-js-react-npm-app') {
-                    sh '''
-                        docker run --rm \
-                            -v $PWD:/app \
-                            -w /app \
-                            node:20-alpine \
-                            sh -c "node -v && npm install && npx vitest run"
-                    '''
-                }
+                sh '''
+                    node -v
+                    npm install
+                    npx vitest run
+                '''
             }
         }
 
         stage('Build Image') {
             steps {
-                dir('simple-node-js-react-npm-app') {
-                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-                }
+                sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} simple-node-js-react-npm-app"
             }
         }
 
@@ -68,7 +66,6 @@ pipeline {
                     echo "HTTP Status: $STATUS"
 
                     if [ "$STATUS" != "200" ]; then
-                        echo "FAILED"
                         exit 1
                     fi
 
