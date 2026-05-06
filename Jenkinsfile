@@ -10,19 +10,17 @@ pipeline {
 
     stages {
 
-stage('Install & Test') {
-    steps {
-        dir('simple-node-js-react-npm-app') {
-            sh '
-                docker run --rm \
-                    -v $PWD:/app \
-                    -w /app \
-                    node:20-alpine \
-                    sh -c "node -v && npm install && npx vitest run"
-            '
-        }
-    }
-}
+        stage('Install & Test') {
+            steps {
+                dir('simple-node-js-react-npm-app') {
+                    sh '''
+                        docker run --rm \
+                            -v $PWD:/app \
+                            -w /app \
+                            node:20-alpine \
+                            sh -c "node -v && npm install && npx vitest run"
+                    '''
+                }
             }
         }
 
@@ -70,10 +68,11 @@ stage('Install & Test') {
                     echo "HTTP Status: $STATUS"
 
                     if [ "$STATUS" != "200" ]; then
+                        echo "FAILED"
                         exit 1
                     fi
 
-                    echo "Verification PASSED"
+                    echo "PASSED"
                 '''
             }
         }
@@ -84,11 +83,13 @@ stage('Install & Test') {
             sh "docker logout ${NEXUS_HOSTED} || true"
             sh 'docker rm -f react-app-verify || true'
         }
+
         success {
-            echo "✅ Pipeline succeeded - Image pushed successfully"
+            echo "✅ Pipeline succeeded"
         }
+
         failure {
-            echo "❌ Pipeline failed!"
+            echo "❌ Pipeline failed"
         }
     }
 }
