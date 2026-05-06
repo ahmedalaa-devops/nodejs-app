@@ -48,14 +48,14 @@ pipeline {
         stage('Run Container') {
             steps {
                 sh 'docker rm -f react-app-verify || true'
-                sh "docker run -d --name react-app-verify -p 8090:80 ${NEXUS_GROUP}/react-app:${BUILD_NUMBER}"
+                sh "docker run -d --name react-app-verify -p 8091:80 ${NEXUS_GROUP}/react-app:${BUILD_NUMBER}"
             }
         }
         stage('Verify') {
             steps {
                 sh 'sleep 5'
                 sh '''
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8090)
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8091)
                     echo "HTTP Status: $STATUS"
                     if [ "$STATUS" != "200" ]; then
                         echo "Verification FAILED"
