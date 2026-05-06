@@ -12,13 +12,12 @@ pipeline {
 
         stage('Install & Test') {
             steps {
-                sh '''
-                    docker run --rm \
-                        -v $(pwd)/simple-node-js-react-npm-app:/app \
-                        -w /app \
-                        node:20-alpine \
-                        sh -c "npm install && npx vitest run"
-                '''
+                dir('simple-node-js-react-npm-app') {
+                    sh '''
+                        npm install
+                        npx vitest run
+                    '''
+                }
             }
         }
 
@@ -68,6 +67,8 @@ pipeline {
                     if [ "$STATUS" != "200" ]; then
                         exit 1
                     fi
+
+                    echo "Verification PASSED"
                 '''
             }
         }
@@ -79,7 +80,7 @@ pipeline {
             sh 'docker rm -f react-app-verify || true'
         }
         success {
-            echo "✅ Pipeline succeeded"
+            echo "✅ Pipeline succeeded - Image pushed successfully"
         }
         failure {
             echo "❌ Pipeline failed!"
