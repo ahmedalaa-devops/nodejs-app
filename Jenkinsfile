@@ -9,9 +9,15 @@ pipeline {
     stages {
         stage('Install & Test') {
             steps {
-                dir('simple-node-js-react-npm-app') {
-                    sh 'npm ci && npx vitest run'
-                }
+                sh '''
+                    cp -r simple-node-js-react-npm-app /tmp/nodeapp
+                    docker run --rm \
+                        -v /tmp/nodeapp:/app \
+                        -w /app \
+                        node:20-alpine \
+                        sh -c "npm ci && npx vitest run"
+                    rm -rf /tmp/nodeapp
+                '''
             }
         }
         stage('Build Image') {
@@ -47,7 +53,7 @@ pipeline {
         }
         stage('Verify') {
             steps {
-                sh 'sleep 3'
+                sh 'sleep 5'
                 sh '''
                     STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8090)
                     echo "HTTP Status: $STATUS"
