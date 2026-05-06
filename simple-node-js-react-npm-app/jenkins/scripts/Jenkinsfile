@@ -1,90 +1,75 @@
 pipeline {
     agent any
-
     environment {
-        IMAGE_NAME = 'my-react-app'
-        IMAGE_TAG  = "${env.BUILD_NUMBER}"
+        NEXUS_HOSTED = "localhost:30082"
+        NEXUS_GROUP  = "localhost:30083"
+        IMAGE_NAME   = "react-app"
+        NEXUS_IMAGE  = "localhost:30082/react-app"
     }
-
     stages {
-
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Install Dependencies') {
+        stage('Install & Test') {
             steps {
                 dir('simple-node-js-react-npm-app') {
-                    sh 'npm ci'
+                    sh 'docker run --rm -v $(pwd):/app -w /app node:20-alpine sh -c "npm ci && npx vitest run"'
                 }
             }
         }
-
-        stage('Run Tests') {
+        stage('Build Image') {
             steps {
                 dir('simple-node-js-react-npm-app') {
-                    sh 'npm test'
+                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
                 }
             }
         }
-
-        stage('Build Docker Image') {
-            steps {
-                dir('simple-node-js-react-npm-app') {
-                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
-                }
-            }
-        }
-
-        stage('Push to Registry') {
-            // فعّل الـ stage ده لو عندك Docker registry
-            when {
-                branch 'main'
-            }
+        stage('Push to Nexus Hosted') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'docker-hub-credentials',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
+                    credentialsId: 'nexus-credentials',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
                 )]) {
-                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
-                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker push ${IMAGE_NAME}:latest"
+                    sh """
+                        echo \$NEXUS_PASS | docker login ${NEXUS_HOSTED} \
+                            -u \$NEXUS_USER --password-stdin
+                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${NEXUS_IMAGE}:${BUILD_NUMBER}
+                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${NEXUS_IMAGE}:latest
+                        docker push ${NEXUS_IMAGE}:${BUILD_NUMBER}
+                        docker push ${NEXUS_IMAGE}:latest
+                    """
                 }
             }
         }
-
-        stage('Deploy') {
-            when {
-                branch 'main'
-            }
+        stage('Run Container') {
             steps {
-                sh """
-                    docker stop ${IMAGE_NAME} || true
-                    docker rm   ${IMAGE_NAME} || true
-                    docker run -d \
-                        --name ${IMAGE_NAME} \
-                        -p 80:80 \
-                        --restart unless-stopped \
-                        ${IMAGE_NAME}:${IMAGE_TAG}
-                """
+                sh 'docker rm -f react-app-verify || true'
+                sh "docker run -d --name react-app-verify -p 8090:80 ${NEXUS_GROUP}/react-app:${BUILD_NUMBER}"
+            }
+        }
+        stage('Verify') {
+            steps {
+                sh 'sleep 3'
+                sh '''
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8090)
+                    echo "HTTP Status: $STATUS"
+                    if [ "$STATUS" != "200" ]; then
+                        echo "Verification FAILED"
+                        exit 1
+                    fi
+                    echo "Verification PASSED"
+                '''
             }
         }
     }
-
     post {
+        always {
+            sh "docker logout ${NEXUS_HOSTED} || true"
+            sh 'docker rm -f react-app-verify || true'
+        }
         success {
-            echo "✅ Pipeline succeeded — Build #${env.BUILD_NUMBER}"
+            echo "✅ Pipeline succeeded - Image: ${NEXUS_IMAGE}:${BUILD_NUMBER}"
         }
         failure {
-            echo "❌ Pipeline failed — Check the logs above"
-        }
-        always {
-            // تنظيف الـ images القديمة
-            sh "docker image prune -f || true"
+            echo "❌ Pipeline failed!"
         }
     }
 }
