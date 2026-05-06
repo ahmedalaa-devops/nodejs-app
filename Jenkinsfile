@@ -15,7 +15,7 @@ pipeline {
                         -v /tmp/nodeapp:/app \
                         -w /app \
                         node:20-alpine \
-                        sh -c "npm ci && npx vitest run"
+                        sh -c "npm install && npx vitest run"
                     rm -rf /tmp/nodeapp
                 '''
             }
