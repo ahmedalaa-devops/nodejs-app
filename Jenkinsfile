@@ -9,16 +9,15 @@ pipeline {
     stages {
         stage('Install & Test') {
             steps {
-                sh '''
-                    cp -r simple-node-js-react-npm-app/. /tmp/nodeapp
+                sh '
                     docker run --rm \
-                        -v /tmp/nodeapp:/app \
+                        -v $(pwd)/simple-node-js-react-npm-app:/app \
                         -w /app \
                         node:20-alpine \
-                        sh -c "npm install && npx vitest run"
-                    rm -rf /tmp/nodeapp
-                '''
+                        sh -c "ls -l && npm install && npx vitest run"
+                '
             }
+        }
         }
         stage('Build Image') {
             steps {
