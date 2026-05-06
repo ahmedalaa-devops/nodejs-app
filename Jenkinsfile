@@ -9,14 +9,15 @@ pipeline {
     stages {
         stage('Install & Test') {
             steps {
-                sh '
+                sh '''
                     docker run --rm \
                         -v $(pwd)/simple-node-js-react-npm-app:/app \
                         -w /app \
                         node:20-alpine \
-                        sh -c "ls -l && npm install && npx vitest run"
-                '
+                        sh -c "npm install && npx vitest run"
+                '''
             }
+        }
         }
         }
         stage('Build Image') {
