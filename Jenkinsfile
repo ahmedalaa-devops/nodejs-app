@@ -1,9 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:20-alpine'
-        }
-    }
+    agent any
 
     environment {
         NEXUS_HOSTED = "localhost:30082"
@@ -16,11 +12,13 @@ pipeline {
 
         stage('Install & Test') {
             steps {
-                sh '''
-                    node -v
-                    npm install
-                    npx vitest run
-                '''
+                dir('simple-node-js-react-npm-app') {
+                    sh '''
+                        node -v || true
+                        npm install
+                        npx vitest run
+                    '''
+                }
             }
         }
 
