@@ -10,14 +10,19 @@ pipeline {
 
     stages {
 
-        stage('Install & Test') {
-            steps {
-                dir('simple-node-js-react-npm-app') {
-                    sh '''
-                        npm install
-                        npx vitest run
-                    '''
-                }
+stage('Install & Test') {
+    steps {
+        dir('simple-node-js-react-npm-app') {
+            sh '
+                docker run --rm \
+                    -v $PWD:/app \
+                    -w /app \
+                    node:20-alpine \
+                    sh -c "node -v && npm install && npx vitest run"
+            '
+        }
+    }
+}
             }
         }
 
