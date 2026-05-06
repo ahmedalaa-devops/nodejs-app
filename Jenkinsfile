@@ -10,7 +10,7 @@ pipeline {
         stage('Install & Test') {
             steps {
                 sh '''
-                    cp -r simple-node-js-react-npm-app /tmp/nodeapp
+                    cp -r simple-node-js-react-npm-app/. /tmp/nodeapp
                     docker run --rm \
                         -v /tmp/nodeapp:/app \
                         -w /app \
