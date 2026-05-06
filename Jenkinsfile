@@ -14,11 +14,9 @@ pipeline {
             steps {
                 dir('simple-node-js-react-npm-app') {
                     sh '''
-                        docker run --rm \
-                            -v $PWD:/app \
-                            -w /app \
-                            node:20.19-alpine \
-                            sh -c "node -v && npm install && npx vitest run"
+                        node -v || true
+                        npm install
+                        npx vitest run
                     '''
                 }
             }
@@ -64,9 +62,12 @@ pipeline {
                 sh '''
                     STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8090)
                     echo "HTTP Status: $STATUS"
+
                     if [ "$STATUS" != "200" ]; then
                         exit 1
                     fi
+
+                    echo "PASSED"
                 '''
             }
         }
@@ -76,6 +77,14 @@ pipeline {
         always {
             sh "docker logout ${NEXUS_HOSTED} || true"
             sh 'docker rm -f react-app-verify || true'
+        }
+
+        success {
+            echo "✅ Pipeline succeeded"
+        }
+
+        failure {
+            echo "❌ Pipeline failed"
         }
     }
 }
